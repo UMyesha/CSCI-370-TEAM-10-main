@@ -1,0 +1,401 @@
+﻿DATA DESCRIPTION
+* Size of Total Dataset:
+The dataset contains 100,000 data-entry rows and 9 feature columns, resulting in a 100,000 x 9 dataset.
+* Training Dataset:        
+Using an 80:20 training-to-testing split, the training dataset contains 80,000 entries.
+* Testing Dataset:
+Using the same 80:20 split, the testing dataset contains 20,000 entries.
+* Data Attributes and Types:
+yThe dataset includes both numerical and categorical features relevant to diabetes prediction. The table below summarizes the attributes:
+Attribute
+	Type
+	Description / Range
+	gender
+	String
+	Categorical: Female, Male, Other
+	age
+	Float
+	Continuous: Typical range [1.0 – 80.0+]
+	hypertension
+	Integer
+	Binary: 0 = No, 1 = Yes
+	heart_disease
+	Integer
+	Binary: 0 = No, 1 = Yes
+	smoking_history
+	String
+	Categorical: 'never', 'current', 'former', etc.
+	bmi
+	Float
+	Body Mass Index, range ~[10.0 – 80.0+]
+	HbA1c_level
+	Float
+	Hemoglobin A1c level, e.g. [3.5 – 9.5+]
+	blood_glucose_level
+	Integer
+	Discrete: Blood sugar level, e.g. [50 – 300+]
+	diabetes (Label)
+	Integer
+	Target variable: 0 = Non-diabetic, 1 = Diabetic
+	To optimize data processing:
+   * Categorical string features (gender, smoking_history) are transformed using one-hot encoding.
+   * Binary features (hypertension, heart_disease, diabetes) are already encoded as 0/1.
+   * After transformation, each record is converted into a numeric UserData instance (a list of numbers).
+One-hot Encoding:
+   * gender (3 categories)
+   * smoking_history (multiple categories)
+Binary Encoding:
+   * hypertension, heart_disease, diabetes
+Normalization (Optional):
+   * May be applied to age, bmi, HbA1c_level, and blood_glucose_level for improved convergence.
+Final attributes and indices are stored in the UserData object.
+
+
+a. UI/UX Interface
+   1. UI Output Rendering – Are outputs shown properly?
+   2. Model Integration – Are model responses integrated and shown accurately?
+   3. Input Handling and Data Formatting – Are inputs correctly formatted for backend?
+   4. UI Functional Integrity – Does the UI process inputs correctly?
+   5. Call and Response Flow – Is frontend-backend communication working?
+   6. Input Timeout Behavior – Does clearInput() clear logs after 30s?
+   7. Input Type Transmission – Is input sent as string or string array?
+   8. Blank Input Handling – Is blank input rejected properly?
+   9. String Parsing Validation – Are string inputs parsed properly?
+________________
+
+
+UNIT + COMPONENT TESTING
+
+
+
+
+b. Algorithms Layer
+
+
+I. Component Testing (Decision Tree): [a]Is BootstrapData() correctly producing a randomized training subset for BuildTree() in DecisionTree using the structure in the Validation class?
+Classes Involved:
+
+
+   * Validation.SplitData(DataSet)
+
+
+   * RandomForest.Predict(UserData)
+
+
+   * DecisionTree.BuildTree(Dataset)
+   1. Input example: Transformed DataSet (e.g. 100 entries total)
+Sample Record:
+[0, 1, 0, 0, 1, 0, 0, 68.0, 1, 0, 33.10, 6.7, 190, 1]  # Male, never smoker
+The full dataset is encapsulated in the DataSet object with attributes:
+Headers = [...]
+NumFeatures = 14
+CSVFilePath = 'transformed.csv'
+ImportData = True
+   2. Scenario: The method Validation.SplitData() is first used to divide 80% of the input DataSet for training purposes. Subsequently, BootstrapData() is called to generate a random sample of 50 training examples from this training subset using sampling with replacement. This newly created bootstrap sample is then passed to the DecisionTree.BuildTree() method for model construction.
+   3. Expected Outcome: The expected result of this process is a dataset consisting of exactly 50 entries. Each entry in this dataset should be selected exclusively from the training subset created by Validation.SplitData(), and not from the entire dataset. Duplicate entries are expected and acceptable, as the sampling method used allows for replacement. Additionally, the resulting data must conform to the input format required by the DecisionTree class, typically a list of feature vectors.
+   4. Assertion Method:To verify correct functionality, it must first be confirmed that the length of the bootstrap sample is exactly 50 entries. For each individual record r in the bootstrap sample, it should be asserted that this record exists within the original training data subset. Furthermore, the structure and format of the dataset must be compatible with what the DecisionTree.BuildTree() method expects. Finally, the presence of duplicate entries in the bootstrap sample should be explicitly permitted as a result of sampling with replacement.
+
+
+II. Component Testing (Decision Tree): From the bootstrapped dataset, does BuildTree() actually construct a decision tree from it?
+   1. Input example:  Dataset=
+[
+  [1, 0, 0, 0, 0, 1, 0, 80.0, 0, 1, 25.19, 6.6, 140, 0],
+  [1, 0, 1, 0, 0, 0, 1, 54.0, 0, 0, 27.32, 6.6, 80, 0],
+  [0, 1, 0, 0, 0, 1, 0, 28.0, 0, 0, 27.32, 5.7, 158, 0],
+  [1, 0, 0, 0, 1, 0, 0, 36.0, 0, 0, 23.45, 5.0, 155, 0],
+  [0, 1, 1, 1, 1, 0, 0, 76.0, 1, 1, 20.14, 4.8, 155, 0],
+  [0, 1, 0, 0, 0, 1, 0, 20.0, 0, 0, 24.22, 6.2, 130, 1],
+  [0, 1, 1, 0, 0, 1, 0, 68.0, 1, 0, 33.10, 6.7, 190, 1]
+]
+   2. Scenario: The dataset is received from BootstrapData() and contains transformed entries from the Kaggle Diabetes dataset. The function BuildTree() is expected to recursively partition the dataset and build a decision tree. 
+   3. Expected Outcome: A fully grown DecisionTree is created, meaning it is trained until all leaves contain only samples from a single class (pure leaves).
+Example Tree:
+             glucose > 125
+              /        \
+          Yes           No
+       bmi > 30        age < 40
+        /    \           /    \
+       1      0         1      0
+      4. Assertion Method: Manually trace multiple sample paths through the resulting tree. - Confirm each sample ends at a leaf node where all records have the same diabetes label (0 or 1) - This validates that BuildTree() created a fully expanded and pure decision tree
+
+III. Component Testing (Decision Tree - Deterministic Tree Generation): is the same decision tree created when the same input is provided?                                                        
+         1. Input example: Dataset=
+[
+  [1, 0, 0, 0, 0, 1, 0, 80.0, 0, 1, 25.19, 6.6, 140, 0],
+  [1, 0, 1, 0, 0, 0, 1, 54.0, 0, 0, 27.32, 6.6, 80, 0],
+  [0, 1, 0, 0, 0, 1, 0, 28.0, 0, 0, 27.32, 5.7, 158, 0],
+  [1, 0, 0, 0, 1, 0, 0, 36.0, 0, 0, 23.45, 5.0, 155, 0],
+  [0, 1, 1, 1, 1, 0, 0, 76.0, 1, 1, 20.14, 4.8, 155, 0],
+  [0, 1, 0, 0, 0, 1, 0, 20.0, 0, 0, 24.22, 6.2, 130, 1],
+  [0, 1, 1, 0, 0, 1, 0, 68.0, 1, 0, 33.10, 6.7, 190, 1]
+]
+         2. Scenario: The dataset is received from BootstrapData() or passed manually to the tree.
+         3. Expected Outcome: Given the same input, the same DecisionTree structure (node splits, order, labels) should be output every time (deterministically).
+         4. Assertion Method: Train two DecisionTree instances with the same dataset. Compare their root and child nodes recursively to verify that both tree structures are identical, confirming deterministic behavior.
+
+
+IV. Component Testing (Decision Tree): Does GetClassification() return the correct value?
+         1. Input example: Userdata =
+[1, 0, 0, 0, 0, 1, 0, 68.0, 1, 0, 33.10, 6.7, 190, 1]
+Decision Tree =
+               glucose > 150
+               /         \
+            True         False
+          bmi > 30      age < 40
+          /     \        /     \
+         1       0      1       0
+
+
+         2. Scenario: The UserData record is present in the dataset used to build the tree.
+         3. Expected Outcome:
+The UserData is passed through each node in the tree, being evaluated at decision thresholds (e.g., glucose > 150, bmi > 30, etc.) until it reaches a terminal leaf node with a binary classification of 0 or 1.
+The result is returned and stored in DecisionTreePreds.
+         4. Assertion Method:
+Trace the UserData manually through the decision path. Confirm that the classification result returned by the function matches the leaf node it lands in, and that this classification is recorded correctly in DecisionTreePreds.
+Ensure that when the same input is used again, the same classification result is consistently returned.
+
+
+V. Component Testing (Random Forest): Does AddTree() increase the number of trees in the RandomForest?
+            1. Input example: RandomForest = []
+            2. Decision Tree =
+               glucose > 150
+               /         \
+            True         False
+         bmi > 30       age < 40
+         /     \         /     \
+        1       0       1       0
+
+
+            3. Scenario: The RandomForest is initially empty.
+            4. Expected Outcome:
+The DecisionTree is successfully added to the forest's internal DecisionTreeList.
+            5. Assertion Method:
+Verify that after calling AddTree(), the DecisionTreeList within RandomForest contains exactly one tree—specifically the DecisionTree that was just added—and no others.
+
+
+VI. Component Testing (Random Forest - Clear Majority):  Does AggregatePrediction() properly return the most common binary classification?
+
+
+               1. Input example: RandomForest.DecisionTreePreds = [1,0,1,0,1,0]
+               2. Scenario:
+The list of predictions from individual DecisionTree classifiers is evenly split between 0s (Not Diabetic) and 1s (Diabetic), resulting in no clear majority.
+               3. Expected Outcome:
+Since there is no single most frequent value, the method defaults to returning 1 (indicating Diabetic).
+               4. Assertion Method:
+Ensure that the function returns the value 1 when the vote is tied, confirming that the tie-breaking rule is correctly implemented.
+
+
+VII. Component Testing (Random Forest - Tie Case): Does AggregatePrediction() correctly return the majority prediction?
+                  1. Input example: RandomForest.DecisionTreePreds = [1,0,1,0,1,0]
+                  2. Scenario:
+The list of predictions from the DecisionTree classifiers has more 1s (Diabetic) than 0s.
+                  3. Expected Outcome:
+The method returns 1, as it is the most frequent prediction in the list.
+                  4. Assertion Method:
+Manually count the number of 0s and 1s in the input list. Confirm that 1 appears more frequently, and ensure that AggregatePrediction() returns 1 accordingly.
+
+
+VIII.Component Testing (Filtered Dataset - Match Found): Does FilterAgeAndSex() return filtered list when match is found?
+
+
+                     1. Input example: UserData =
+[0, 1, 0, 0, 1, 0, 0, 32.0, 0, 0, 26.8, 5.9, 143, 0]  # Male, current smoker, age = 32
+
+
+Dataset Contains:
+                     * Gender: Male ([0, 1, 0])
+
+                     * Age Range: 27–37 (within ±5 years)
+
+                        2. Scenario:
+The UserData has close matches in the dataset based on gender and age proximity (±5 years).
+                        3. Expected Outcome:
+A filtered subset of the dataset is returned, containing all entries that are both Male and within the age range of 27–37.
+                        4. Assertion Method:
+Manually check the original dataset for entries meeting the filter criteria. Verify that every row in the filtered output matches both gender and age conditions and that no unrelated records are included.
+IX. Component Testing (Filtered Dataset - No Age Match):  D[b]oes FilterAgeAndSex() fall back to same-sex match when no age match is found?
+Precondition: All dataset entries must be complete, with no missing/null values in any feature. Missing values will be handled before doing this test.
+
+
+                           1. Input example: UserData=
+[0, 1, 0, 0, 1, 0, 0, 92.0, 0, 0, 24.1, 6.1, 140, 0]  # Male, age = 92
+
+
+Dataset contains:
+[
+  [0, 1, 0, 0, 1, 0, 0, 60.0, 1, 0, 27.5, 5.4, 120, 0],  # Male, age 60
+  [0, 1, 0, 0, 0, 0, 1, 45.0, 0, 0, 29.0, 6.0, 130, 1],  # Male, age 45
+  [1, 0, 0, 0, 0, 0, 0, 50.0, 0, 1, 25.0, 5.9, 135, 0],  # Female, age 50
+  [0, 0, 1, 0, 1, 0, 0, 35.0, 1, 0, 30.1, 5.5, 110, 1]   # Other gender, age 35
+]
+                           * No users over 85 years old
+
+                           * Some Male users aged 40–60
+
+                              2. Scenario:
+There are no entries in the dataset within ±5 years of the UserData age (92), so the age filter fails. The method should relax the filter and instead return entries matching only by gender (Male).
+
+                              3. Expected Outcome:
+[
+  [0, 1, 0, 0, 1, 0, 0, 60.0, 1, 0, 27.5, 5.4, 120, 0],
+  [0, 1, 0, 0, 0, 0, 1, 45.0, 0, 0, 29.0, 6.0, 130, 1]
+]
+Returns a list of Male records from the dataset, regardless of age.
+                                 4. Assertion Method:
+Ensure that all entries in the returned list are Male (gender = [0, 1, 0]) and that no Female or Other gender entries are included. Validate that the fallback logic is correctly triggered when no age-based matches are found.
+
+X. Unit Testing (Filtered Dataset - Valid Dataset): Does GetComparisonValues() return statistical values from a valid dataset?
+                                    1. Input example: Filtered Dataset =
+[
+  [1, 0, 0, 0, 0, 1, 0, 34.0, 0, 0, 24.1, 6.0, 142, 0],
+  [0, 1, 0, 0, 1, 0, 0, 36.0, 0, 0, 26.3, 5.8, 150, 0],
+  [0, 1, 0, 0, 0, 1, 0, 32.0, 0, 0, 25.5, 6.2, 147, 1]
+]
+                                    2. Scenario:
+The filtered dataset contains multiple user entries. The function should compute the median or mode of each feature across the dataset to generate a UserData comparison instance.
+                                    3. Expected Outcome:
+Returns a UserData object with aggregated values — median for numeric fields (like age, bmi, glucose) and mode for categorical/binary fields (like hypertension, heart_disease, gender).
+                                    4. Assertion Method:
+Manually compute median/mode for each feature in the input dataset. Compare the output UserData instance returned by GetComparisonValues() against these expected values to ensure accurate aggregation.
+
+XI. Unit Testing (Filtered Dataset - Empty Dataset): Does GetComparisonValues() return fallback values for an empty dataset?
+                                       1. Input example: Filtered Dataset = []  # No matching user entries
+                                       2. Scenario:
+The dataset is empty after filtering (e.g., no matches for both age and gender). The function should return a default UserData object filled with fallback values.
+                                       3. Expected Outcome:
+Returns a UserData instance where all feature values are set to -1, indicating missing or unusable data.
+                                       4. Assertion Method:
+Check that the output UserData contains only -1 for every attribute. Assert value == -1 for each element in the returned list to confirm proper fallback behavior.
+XIII. Unit Testing (EncryptionModule - Encrypt/Decrypt):Does Encrypt() followed by Decrypt() preserve data integrity?
+Input example:
+Data = "SensitiveUserData"
+Scenario:The same encryption key is used for both operations. After encrypting, the result is decrypted back to the original string.
+Expected Outcome:Decrypted result exactly matches the original input ("SensitiveUserData").
+Assertion Method:Assert that Decrypt(Encrypt("SensitiveUserData")) == "SensitiveUserData" using the same Key
+c. Data Layer 
+I. Component Testing - ParseUserData() with complete and valid input
+                                          1. Input: ["55", "F", "current", "130", "215", "0", "LVH", "132", "Y", "0.0", "Up", "1"]
+                                          2. Scenario: The user submits a complete health profile with all fields filled.
+                                          3. Expected Outcome: The system parses all values correctly, applies necessary encoding (e.g., one-hot for gender and smoking history), and generates a valid UserData object.
+                                          4. Assertion Method: Manually convert each input string into its corresponding encoded form and verify that the resulting UserData matches the expected structure and values. Confirm categorical values (like "F") are encoded correctly.
+II. Component Testing - ParseUserData() with partial input and missing values
+                                          1. Input: ["55", "F", "", "130", "", "0", "", "", "Y", "", "Up", ""]
+                                          2. Scenario: User input is missing certain health indicators (e.g., no smoking history, missing glucose level, etc.)
+                                          3. Expected Outcome: The parser fills in missing values using predefined defaults (e.g., mean values or placeholder encodings), maintaining a valid UserData object.
+                                          4. Assertion Method: Track which fields are missing and what default values are used. Confirm the parser inserts average values or encoded placeholders as expected.
+III. Component Testing - LinkCSV() with invalid file path
+                                          1. Input: "src/data/doesnotexist.csv"
+                                          2. Scenario: Attempt to link to a file path that does not exist on the system.
+                                          3. Expected Outcome: The method should throw an error or return an error code (e.g., -1) without affecting internal state.
+                                          4. Assertion Method: Catch the error and assert that no file is linked; confirm that system logs or error outputs acknowledge the missing path.
+IV. Unit Testing - LinkCSV() with unsupported file type
+                                          1. Input: "src/data/sample.txt"
+                                          2. Scenario: The user uploads a file with an unsupported format (non-CSV).
+                                          3. Expected Outcome: The function returns error code -2 or another descriptive error message indicating file type incompatibility.
+                                          4. Assertion Method: Attempt to link the file and check that the internal dataset path remains unchanged. Validate error handling behavior.
+V. Unit Testing - LinkCSV() with valid file path
+                                          1. Input: "src/data/valid.csv"
+                                          2. Scenario: Proper CSV file exists and is accessible.
+                                          3. Expected Outcome: The file is linked successfully, allowing further data import.
+                                          4. Assertion Method: Confirm no errors are returned and that the internal reference to the dataset is updated
+VI. Unit Testing - ImportData() on an empty CSV
+                                          1. Input: "src/data/empty.csv"a
+                                          2. Scenario: The linked CSV file is syntactically correct but contains no data entries.
+                                          3. Expected Outcome: The function initializes an empty dataset object without crashing.
+                                          4. Assertion Method: Check that the returned dataset has 0 entries. Validate internal logs or state variables indicating the dataset is empty.
+VII. Unit Testing - ImportData() on CSV with headers
+                                          1. Input: "src/data/header_csv.csv"
+                                          2. Scenario: The dataset includes header rows that must be parsed and stored.
+                                          3. Expected Outcome: Headers are stored and indexed separately, and the data entries are processed starting from the second row.
+                                          4. Assertion Method: Validate that the first row is not included in data entries and that header names are available as metadata.
+VIII. Unit Testing - ImportData() on CSV without headers
+                                          1. Input: "src/data/no_header.csv"
+                                          2. Scenario: File contains raw data only; no descriptive header row.
+                                          3. Expected Outcome: All rows are treated as data entries, and header array is either empty or autogenerated.
+                                          4. Assertion Method: Check data array length equals number of rows in the file. Confirm absence of header metadata.
+IVX. Unit Testing - GetAdditionalInfo() with valid DataSet
+                                          1. Input: UserData = A fully initialized object with known values (e.g., age, glucose, etc.)
+                                          2. Scenario: The method GetAdditionalInfo() is called on a UserData instance to compute additional statistics (e.g., how the user compares to average glucose or BMI in the dataset).
+                                          3. Expected Outcome: Returns a dictionary or structured result with statistical comparisons — e.g.,
+"Above average glucose": False
+"BMI percentile": 65th
+"Older than average": True
+                                          4. Assertion Method: Manually compute the average glucose, BMI, and age from the dataset. Compare those values to the current UserData object.  Assert that the values returned by GetAdditionalInfo() match these manually calculated flags (greater than average, percentile position, etc.).
+
+
+
+
+________________
+
+
+SYSTEM-WISE TESTING
+Functional Requirement: Training DiabeXpert
+Scenario 1: Training with Optimal Data Size
+                                          * Description: Dataset used is balanced and appropriate in size.
+                                          * Expected Outcome: Balanced accuracy, avoids under/overfitting.
+                                          * Validation Method: Compare accuracy/precision/recall/F1-score.
+Scenario 2: Training with Insufficient Data
+                                          * Description: Only 200 data points used.
+                                          * Expected Outcome: Underfitting, higher error rate.
+                                          * Validation Method: Compare baseline accuracy with full data.
+Scenario 3: Training with Excessive Data
+                                          * Description: Overly large dataset used.
+                                          * Expected Outcome: Overfitting, drop in generalization.
+                                          * Validation Method: Compare out-of-sample error with standard model.
+
+
+Functional Requirement: Severity Scale
+Scenario 1: Input leads to low-risk classification 
+                                          * Description: User enters healthy parameters (e.g., BMI = 22.0, glucose = 95, age = 25).
+                                          * Expected Outcome: Score is between 0.0–0.3, labeled as "Low" severity.
+                                          * Validation Method: Confirm correct risk score range and label mapping. Output should say "Low Risk" with a user-friendly         explanation.
+Scenario 2: Input triggers override due to critical glucose 
+                                          * Description: Score = 0.55 (Moderate), but glucose = 300 mg/dL. System identifies high Glucose levels.
+                                          * Expected Outcome: Override applied. System still flags "High Risk" due to glucose value. 
+                                          * Validation Method: Ensure the override mechanism correctly flags critical conditions, which triggers override logic, despite numeric range/other healthy parameters.
+Scenario 3: Borderline value test 
+                                          * Description: User’s calculated risk is at the threshold between “Low” and “Moderate”; Score = 0.30 (edge of "Low"). 
+                                          * Expected Outcome: Regardless of threshold boundaries, the system correctly classifies users as low risk. However, inform users they are nearing the entry of the next threshold.
+                                          * Validation Method: Confirm correct label assignment at boundaries.
+Functional Requirement: Personalized Risk Reduction Recommendations
+Scenario 1: Multiple values out of healthy range 
+                                          * Description: User has glucose = 135 mg/dL, BMI = 31.5, toh of which fall outside the healthy ranges.
+                                          * Expected Outcome: Generates two tailored recommendations: 
+                                          * reduce sugar intake (Glucose)
+                                          * increase physical activity (BMI)
+                                          * Validation Method: Check that each parameter triggers appropriate rule and recommendation.
+Scenario 2: All values normal 
+                                          * Description: User health stats fall within healthy ranges. 
+                                          * Expected Outcome: System reports no actionable risks, encourages continued habits.
+                                          * Validation Method: Confirm no unnecessary/irrelevant recommendations are generated.
+Scenario 3: User health improves over time 
+                                          * Description: User checks in weekly with progressive risk improvements in risk indicators (BMI, Glucose) 
+                                          * Expected Outcome: Recommendations update to reflect progress and reinforce behavior.
+                                          * Validation Method: Ensure recommendations adapt when comparing new input with prior trends.
+________________
+
+
+ACCEPTANCE TESTING
+                                          1. Accuracy Measurement
+                                          * Out-sample error from testing dataset compared to predictions.
+                                          * For each data point in the testing dataset, the actual outcome for each data point will be compared to the outcome predicted by the RandomForest. The number of wrong matches divided by the number of data points in the testing dataset will be the error of the RandomForest model.
+                                          2. Security Measurement
+[c]
+                                          * Data Non-Retention Enforcement: The system is designed to prevent the storage of sensitive user information. Before and after user interaction, the system checks that the structure and size of the persistent dataset remain unchanged. Any temporary user input is isolated from the main dataset and is not written to disk, cache, or logs.
+
+                                          * Volatile Memory Allocation: All user interactions occur in volatile memory only. No input data is serialized, logged, or stored beyond the execution context. When the session ends or times out, all related memory is explicitly cleared.
+
+                                          * Session Timeout and Auto-Purge: The interface employs an auto-expiration mechanism. If a user remains inactive for 30 seconds, the session is invalidated and all associated data is purged, ensuring no residuals remain in memory.
+
+                                             3. Speed Measurement: System responsiveness is measured by the time between user input submission and result display. The following criteria apply:
+                                             * Response Time Goal: Predictions must be returned within 1.5 seconds. Anything over 3 seconds is considered a failure.
+                                             * Measurement Method: Timestamps are logged at input submission and result return.
+                                             * Breakdown Targets:
+                                             * Data processing: ≤ 0.3sModel prediction: ≤ 0.8s
+                                             * Result rendering: ≤ 0.4s
+                                             * Test Procedure: Run 20 varied user inputs, record average and standard deviation of response times.
+
+
+[a]wrong test case: trivial test case
+[b]fill in missing values first, b4 entering rf, all entries should be complete
+[c]can still be traced/hacked, not really secure
